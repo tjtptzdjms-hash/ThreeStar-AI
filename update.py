@@ -3,7 +3,7 @@ from pathlib import Path
 import csv
 import re
 import sys
-
+import requests
 from TaiwanLottery import TaiwanLotteryCrawler
 
 
@@ -199,6 +199,7 @@ def extract_draws(raw):
     number_keys = [
         "獎號",
         "中獎號碼",
+        "drawNumberAppear",
         "drawNumberSize",
         "drawNumbers",
         "numbers",
@@ -273,7 +274,52 @@ def fetch_month(year, month):
 
     return rows
 
+def fetch_latest_official():
+    now = datetime.now()
 
+    month = now.strftime("%Y-%m")
+
+    url = (
+        "https://api.taiwanlottery.com/"
+        "TLCAPIWeB/Lottery/3DResult"
+        f"?period&month={month}&pageNum=1&pageSize=50"
+    )
+
+    print("抓取台彩官方最新三星彩資料")
+
+    response = requests.get(
+        url,
+        timeout=20,
+        headers={
+            "User-Agent": "Mozilla/5.0"
+        },
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    if data.get("rtCode") != 0:
+        raise RuntimeError(
+            f"台彩 API 回傳異常：{data.get('rtCode')}"
+        )
+
+    content = data.get("content", {})
+
+    raw_rows = content.get(
+        "lotto3DRes",
+        []
+    )
+
+    rows = extract_draws(
+        raw_rows
+    )
+
+    print(
+        f"官方最新來源取得 {len(rows)} 期"
+    )
+
+    return rows
 def save_rows(rows):
     unique = {}
 
@@ -371,7 +417,17 @@ def main():
 
     all_rows = existing.copy()
     success_months = 0
+    try:
+        latest_rows = fetch_latest_official()
 
+        if latest_rows:
+            all_rows.extend(latest_rows)
+
+    except Exception as exc:
+        print(
+            f"官方最新來源失敗：{exc}",
+            file=sys.stderr
+        )
     for year, month in month_range(
         start_year,
         start_month,
