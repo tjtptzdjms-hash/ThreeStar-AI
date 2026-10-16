@@ -5,7 +5,7 @@ import re
 import sys
 
 from TaiwanLottery import TaiwanLotteryCrawler
-
+import requests
 
 CSV_FILE = Path("draws.csv")
 HEADERS = ["date", "issue", "number"]
@@ -242,7 +242,63 @@ def save_rows(rows):
 
     return result
 
+def fetch_latest_official():
+    """
+    補最新三星彩資料。
+    先嘗試直接從台彩目前使用的 API 取得本月結果。
+    若 API 格式改變或暫時失效，就回傳空陣列，不破壞原資料。
+    """
 
+    now = datetime.now()
+    month = now.strftime("%Y-%m")
+
+    candidates = [
+        (
+            "https://api.taiwanlottery.com/TLCAPIWeB/"
+            f"Lottery/3DResult?period&month={month}&pageNum=1&pageSize=50"
+        ),
+        (
+            "https://api.taiwanlottery.com/TLCAPIWeB/"
+            f"Lottery/Lotto3DResult?period&month={month}&pageNum=1&pageSize=50"
+        ),
+    ]
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 "
+            "(iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 Safari/604.1"
+        )
+    }
+
+    for url in candidates:
+        try:
+            r = requests.get(
+                url,
+                headers=headers,
+                timeout=20,
+            )
+
+            if r.status_code != 200:
+                continue
+
+            data = r.json()
+            rows = extract_draws(data)
+
+            if rows:
+                print(
+                    f"官方最新來源成功取得 {len(rows)} 期"
+                )
+                return rows
+
+        except Exception as exc:
+            print(
+                f"官方最新來源失敗：{exc}",
+                file=sys.stderr,
+            )
+
+    print("官方最新來源目前沒有取得有效資料。")
+    return []
 def main():
     existing = load_existing()
 
@@ -275,6 +331,10 @@ def main():
 
     all_rows = existing.copy()
     success_months = 0
+    latest_rows = fetch_latest_official()
+
+if latest_rows:
+    all_rows.extend(latest_rows)
 
     for year, month in month_range(
         start_year,
@@ -295,7 +355,7 @@ def main():
                 file=sys.stderr,
             )
 
-    if success_months == 0:
+    if success_months == 0 and not latest_rows:
         print("沒有成功取得任何月份資料。")
 
         if existing:
