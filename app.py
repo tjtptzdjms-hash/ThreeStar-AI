@@ -32,7 +32,7 @@ def metrics(df, n):
             out.append({'位置':name,'數字':digit,'出現次數':freq,'出現率':freq/len(seq) if seq else 0,'遺漏期數':miss,'樣本數':len(seq)})
     return pd.DataFrame(out)
 
-st.title('🎯 三星彩統計實驗室 V1')
+st.title('🎯 三星彩統計實驗室 V1.1')
 st.caption('歷史統計與回測研究用途；不代表能預測獨立隨機開獎。資料未更新時請以官方公告為準。')
 with st.sidebar:
     st.header('資料管理')
@@ -59,6 +59,47 @@ st.write('最新資料：',df.iloc[0]['date'].strftime('%Y-%m-%d'),'／',df.iloc
 window=st.select_slider('分析最近多少期',options=[10,30,50,100,200,500],value=100)
 if len(df)<window: st.info(f'目前只有 {len(df)} 期，統計依現有資料計算。')
 stat=metrics(df,window)
+st.subheader('📊 V1.1 快速摘要')
+
+summary_cols = st.columns(3)
+
+for col, p in zip(summary_cols, ['百位', '十位', '個位']):
+    v = stat[stat['位置'] == p].copy()
+
+    hot = (
+        v.sort_values(
+            ['出現次數', '遺漏期數', '數字'],
+            ascending=[False, True, True]
+        )
+        .head(3)
+    )
+
+    overdue = (
+        v.sort_values(
+            ['遺漏期數', '出現次數', '數字'],
+            ascending=[False, True, True]
+        )
+        .head(3)
+    )
+
+    with col:
+        st.markdown(f'### {p}')
+
+        st.write(
+            '🔥 熱號 Top 3：',
+            '、'.join(
+                f"{r['數字']}（{int(r['出現次數'])}次）"
+                for _, r in hot.iterrows()
+            )
+        )
+
+        st.write(
+            '⏳ 遺漏 Top 3：',
+            '、'.join(
+                f"{r['數字']}（{int(r['遺漏期數'])}期）"
+                for _, r in overdue.iterrows()
+            )
+        )
 t1,t2,t3,t4=st.tabs(['冷熱與遺漏','開獎走勢','參考組合','歷史回測'])
 with t1:
     for p in ['百位','十位','個位']:
