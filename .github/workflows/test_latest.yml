@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Test possible 3D endpoints
+      - name: Inspect 3D API structure
         run: |
           python - <<'PY'
           import requests
@@ -17,47 +17,69 @@ jobs:
 
           month = datetime.now().strftime("%Y-%m")
 
-          endpoints = [
-              "3DResult",
-              "Lotto3DResult",
-              "ThreeDResult",
-          ]
+          url = (
+              "https://api.taiwanlottery.com/"
+              "TLCAPIWeB/Lottery/3DResult"
+              f"?period&month={month}&pageNum=1&pageSize=20"
+          )
 
-          for endpoint in endpoints:
-              url = (
-                  "https://api.taiwanlottery.com/"
-                  "TLCAPIWeB/Lottery/"
-                  f"{endpoint}"
-                  f"?period&month={month}&pageNum=1&pageSize=20"
+          r = requests.get(
+              url,
+              timeout=20,
+              headers={"User-Agent": "Mozilla/5.0"},
+          )
+
+          print("STATUS:", r.status_code)
+
+          data = r.json()
+
+          print("\nTOP LEVEL KEYS:")
+          print(list(data.keys()))
+
+          content = data.get("content")
+
+          print("\nCONTENT TYPE:")
+          print(type(content).__name__)
+
+          if isinstance(content, dict):
+              print("\nCONTENT KEYS:")
+              print(list(content.keys()))
+
+              for key, value in content.items():
+                  print("\n" + "=" * 60)
+                  print("KEY:", key)
+                  print("TYPE:", type(value).__name__)
+
+                  if isinstance(value, list):
+                      print("COUNT:", len(value))
+                      print("FIRST 3 ITEMS:")
+                      print(
+                          json.dumps(
+                              value[:3],
+                              ensure_ascii=False,
+                              indent=2,
+                          )
+                      )
+
+                  elif isinstance(value, dict):
+                      print(
+                          json.dumps(
+                              value,
+                              ensure_ascii=False,
+                              indent=2,
+                          )[:6000]
+                      )
+
+                  else:
+                      print(value)
+
+          else:
+              print(
+                  json.dumps(
+                      content,
+                      ensure_ascii=False,
+                      indent=2,
+                  )[:6000]
               )
-
-              print("\n" + "=" * 80)
-              print("TEST:", endpoint)
-              print("URL:", url)
-
-              try:
-                  r = requests.get(
-                      url,
-                      timeout=20,
-                      headers={
-                          "User-Agent": "Mozilla/5.0"
-                      },
-                  )
-
-                  print("STATUS:", r.status_code)
-                  print(
-                      "CONTENT-TYPE:",
-                      r.headers.get("content-type")
-                  )
-
-                  text = r.text
-
-                  print(
-                      "BODY:",
-                      text[:5000]
-                  )
-
-              except Exception as e:
-                  print("ERROR:", repr(e))
 
           PY
