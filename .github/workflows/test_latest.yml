@@ -1,0 +1,63 @@
+name: Test ThreeStar Latest API
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test possible 3D endpoints
+        run: |
+          python - <<'PY'
+          import requests
+          import json
+          from datetime import datetime
+
+          month = datetime.now().strftime("%Y-%m")
+
+          endpoints = [
+              "3DResult",
+              "Lotto3DResult",
+              "ThreeDResult",
+          ]
+
+          for endpoint in endpoints:
+              url = (
+                  "https://api.taiwanlottery.com/"
+                  "TLCAPIWeB/Lottery/"
+                  f"{endpoint}"
+                  f"?period&month={month}&pageNum=1&pageSize=20"
+              )
+
+              print("\n" + "=" * 80)
+              print("TEST:", endpoint)
+              print("URL:", url)
+
+              try:
+                  r = requests.get(
+                      url,
+                      timeout=20,
+                      headers={
+                          "User-Agent": "Mozilla/5.0"
+                      },
+                  )
+
+                  print("STATUS:", r.status_code)
+                  print(
+                      "CONTENT-TYPE:",
+                      r.headers.get("content-type")
+                  )
+
+                  text = r.text
+
+                  print(
+                      "BODY:",
+                      text[:5000]
+                  )
+
+              except Exception as e:
+                  print("ERROR:", repr(e))
+
+          PY
