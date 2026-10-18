@@ -148,7 +148,254 @@ st.dataframe(
 )
 st.subheader("⭐ 組合評分")
 st.subheader("🧪 歷史回測")
+st.subheader("📊 V1.2 權重比較回測")
 
+def build_score_map_custom(
+    hist_df,
+    hist_window,
+    hot_weight,
+    miss_weight
+):
+    hist_stat = metrics(
+        hist_df,
+        hist_window
+    )
+
+    result = {}
+
+    for pos in ["百位", "十位", "個位"]:
+        v = hist_stat[
+            hist_stat["位置"] == pos
+        ].copy()
+
+        max_count = max(
+            v["出現次數"].max(),
+            1
+        )
+
+        max_miss = max(
+            v["遺漏期數"].max(),
+            1
+        )
+
+        result[pos] = {}
+
+        for _, r in v.iterrows():
+            hot_score = (
+                r["出現次數"]
+                / max_count
+            )
+
+            miss_score = (
+                r["遺漏期數"]
+                / max_miss
+            )
+
+            score = (
+                hot_score * hot_weight
+                + miss_score * miss_weight
+            )
+
+            result[pos][
+                int(r["數字"])
+            ] = score
+
+    return result
+
+
+def top_n_numbers_custom(
+    hist_df,
+    hist_window,
+    top_n,
+    hot_weight,
+    miss_weight
+):
+    score_map_custom = (
+        build_score_map_custom(
+            hist_df,
+            hist_window,
+            hot_weight,
+            miss_weight
+        )
+    )
+
+    rows = []
+
+    for h in range(10):
+        for t in range(10):
+            for o in range(10):
+                score = (
+                    score_map_custom["百位"][h]
+                    + score_map_custom["十位"][t]
+                    + score_map_custom["個位"][o]
+                ) / 3
+
+                rows.append(
+                    (
+                        f"{h}{t}{o}",
+                        score
+                    )
+                )
+
+    rows.sort(
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    return [
+        number
+        for number, _ in rows[:top_n]
+    ]
+
+
+weight_sets = [
+    ("60/40", 0.6, 0.4),
+    ("50/50", 0.5, 0.5),
+    ("40/60", 0.4, 0.6),
+]
+
+top_sets = [
+    10,
+    20,
+    50,
+]
+
+comparison_rows = []
+
+compare_rounds = min(
+    200,
+    max(
+        0,
+        len(df) - window - 1
+    )
+)
+
+if compare_rounds > 0:
+
+    for weight_name, hot_w, miss_w in weight_sets:
+
+        for top_n in top_sets:
+
+            hits = 0
+            tested = 0
+
+            for i in range(compare_rounds):
+
+                hist_start = i + 1
+                hist_end = (
+                    i + 1 + window
+                )
+
+                hist_df = df.iloc[
+                    hist_start:hist_end
+                ].copy()
+
+                if len(hist_df) < window:
+                    continue
+
+                actual = str(
+                    df.iloc[i]["number"]
+                ).zfill(3)
+
+                picks = (
+                    top_n_numbers_custom(
+                        hist_df,
+                        window,
+                        top_n,
+                        hot_w,
+                        miss_w
+                    )
+                )
+
+                tested += 1
+
+                if actual in picks:
+                    hits += 1
+
+            hit_rate = (
+                hits / tested * 100
+                if tested > 0
+                else 0
+            )
+
+            random_rate = (
+                top_n / 1000 * 100
+            )
+
+            edge = (
+                hit_rate
+                - random_rate
+            )
+
+            comparison_rows.append(
+                {
+                    "權重": weight_name,
+                    "Top N": top_n,
+                    "回測期數": tested,
+                    "命中次數": hits,
+                    "命中率%": round(
+                        hit_rate,
+                        2
+                    ),
+                    "隨機基準%": round(
+                        random_rate,
+                        2
+                    ),
+                    "超額表現": round(
+                        edge,
+                        2
+                    ),
+                }
+            )
+
+    comparison_df = pd.DataFrame(
+        comparison_rows
+    )
+
+    comparison_df = (
+        comparison_df.sort_values(
+            [
+                "超額表現",
+                "命中率%"
+            ],
+            ascending=[
+                False,
+                False
+            ]
+        )
+    )
+
+    st.dataframe(
+        comparison_df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    best_row = (
+        comparison_df.iloc[0]
+    )
+
+    st.write(
+        "目前回測最佳："
+        f"權重 {best_row['權重']}，"
+        f"Top {int(best_row['Top N'])}，"
+        f"命中率 {best_row['命中率%']:.2f}%"
+    )
+
+    if best_row["超額表現"] > 0:
+        st.success(
+            "目前最佳組合高於隨機基準 "
+            f"{best_row['超額表現']:.2f} 個百分點"
+        )
+    else:
+        st.warning(
+            "目前所有測試組合都沒有明顯高於隨機基準。"
+        )
+
+else:
+    st.info(
+        "歷史資料不足，暫時無法進行權重比較。"
+    )
 def build_score_map(hist_df, hist_window):
     hist_stat = metrics(hist_df, hist_window)
 
