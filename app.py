@@ -395,7 +395,146 @@ if compare_rounds > 0:
 else:
     st.info(
         "歷史資料不足，暫時無法進行權重比較。"
+    ）
+st.subheader("🔬 V1.3 獨立驗證")
+
+# V1.2 是用最新 200 期挑出：
+# 熱度 40% / 遺漏 60% / Top 20
+#
+# V1.3 不再使用這 200 期，
+# 改用其餘較早歷史資料做獨立驗證。
+
+selected_hot_weight = 0.4
+selected_miss_weight = 0.6
+selected_top_n = 20
+
+selection_rounds = 200
+
+validation_windows = [
+    30,
+    50,
+    100,
+    200,
+]
+
+validation_rows = []
+
+for test_window in validation_windows:
+
+    hits = 0
+    tested = 0
+
+    # 前 200 筆是 V1.2 選模區間
+    # 從 index 200 之後才開始獨立驗證
+    start_idx = selection_rounds
+
+    # 每個 target 後面必須還有足夠歷史資料
+    end_idx = len(df) - test_window
+
+    for i in range(
+        start_idx,
+        end_idx
+    ):
+
+        hist_start = i + 1
+        hist_end = (
+            i + 1 + test_window
+        )
+
+        hist_df = df.iloc[
+            hist_start:hist_end
+        ].copy()
+
+        if len(hist_df) < test_window:
+            continue
+
+        actual = str(
+            df.iloc[i]["number"]
+        ).zfill(3)
+
+        picks = top_n_numbers_custom(
+            hist_df,
+            test_window,
+            selected_top_n,
+            selected_hot_weight,
+            selected_miss_weight
+        )
+
+        tested += 1
+
+        if actual in picks:
+            hits += 1
+
+    hit_rate = (
+        hits / tested * 100
+        if tested > 0
+        else 0
     )
+
+    random_rate = (
+        selected_top_n / 1000 * 100
+    )
+
+    edge = (
+        hit_rate - random_rate
+    )
+
+    validation_rows.append(
+        {
+            "分析視窗": test_window,
+            "獨立驗證期數": tested,
+            "命中次數": hits,
+            "命中率%": round(
+                hit_rate,
+                2
+            ),
+            "隨機基準%": round(
+                random_rate,
+                2
+            ),
+            "超額表現": round(
+                edge,
+                2
+            ),
+        }
+    )
+
+validation_df = pd.DataFrame(
+    validation_rows
+)
+
+st.dataframe(
+    validation_df,
+    use_container_width=True,
+    hide_index=True
+)
+
+positive_count = (
+    validation_df["超額表現"] > 0
+).sum()
+
+if positive_count >= 3:
+    st.success(
+        f"4 種視窗中有 {positive_count} 種高於隨機基準。"
+        "策略值得繼續觀察，但仍不能視為可預測開獎。"
+    )
+
+elif positive_count >= 1:
+    st.warning(
+        f"4 種視窗中只有 {positive_count} 種高於隨機基準。"
+        "目前證據不一致。"
+    )
+
+else:
+    st.warning(
+        "4 種視窗都沒有高於隨機基準，"
+        "目前無法支持 40/60 + Top 20 有歷史優勢。"
+    )
+
+st.caption(
+    "V1.3 已排除 V1.2 用來挑選策略的最新 200 期，"
+    "使用其他歷史資料做獨立驗證，以降低過度配適風險。"
+)
 def build_score_map(hist_df, hist_window):
     hist_stat = metrics(hist_df, hist_window)
 
