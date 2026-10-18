@@ -100,7 +100,7 @@ for col, p in zip(summary_cols, ['百位', '十位', '個位']):
                 for _, r in overdue.iterrows()
             )
         )
-        st.subheader("🔁 近期重複與連莊")
+st.subheader("🔁 近期重複與連莊")
 
 recent = df.head(window).copy()
 
