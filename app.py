@@ -100,6 +100,109 @@ for col, p in zip(summary_cols, ['百位', '十位', '個位']):
                 for _, r in overdue.iterrows()
             )
         )
+        st.subheader("🔁 近期重複與連莊")
+
+recent = df.head(window).copy()
+
+def split_number(n):
+    s = str(n).zfill(3)
+    return int(s[0]), int(s[1]), int(s[2])
+
+recent[["百位", "十位", "個位"]] = recent["number"].apply(
+    lambda x: pd.Series(split_number(x))
+)
+
+repeat_info = []
+
+for pos in ["百位", "十位", "個位"]:
+    vals = recent[pos].tolist()
+
+    repeat_count = sum(
+        vals[i] == vals[i - 1]
+        for i in range(1, len(vals))
+    )
+
+    current_streak = 1
+
+    for i in range(1, len(vals)):
+        if vals[i] == vals[i - 1]:
+            current_streak += 1
+        else:
+            break
+
+    repeat_info.append(
+        {
+            "位置": pos,
+            "最近連莊值": vals[0] if vals else None,
+            "目前連莊期數": current_streak,
+            "近期期數內相鄰重複次數": repeat_count,
+        }
+    )
+
+repeat_df = pd.DataFrame(repeat_info)
+
+st.dataframe(
+    repeat_df,
+    use_container_width=True,
+    hide_index=True
+)
+st.subheader("⭐ 組合評分")
+
+score_map = {}
+
+for pos in ["百位", "十位", "個位"]:
+    v = stat[stat["位置"] == pos].copy()
+
+    max_count = max(v["出現次數"].max(), 1)
+    max_miss = max(v["遺漏期數"].max(), 1)
+
+    score_map[pos] = {}
+
+    for _, r in v.iterrows():
+        hot_score = r["出現次數"] / max_count
+        miss_score = r["遺漏期數"] / max_miss
+
+        score = (
+            hot_score * 0.6
+            + miss_score * 0.4
+        )
+
+        score_map[pos][int(r["數字"])] = score
+
+candidates = []
+
+for h in range(10):
+    for t in range(10):
+        for o in range(10):
+            score = (
+                score_map["百位"][h]
+                + score_map["十位"][t]
+                + score_map["個位"][o]
+            ) / 3
+
+            candidates.append(
+                {
+                    "號碼": f"{h}{t}{o}",
+                    "評分": round(score * 100, 1)
+                }
+            )
+
+combo_df = pd.DataFrame(candidates)
+
+combo_df = combo_df.sort_values(
+    "評分",
+    ascending=False
+).head(10)
+
+st.dataframe(
+    combo_df,
+    use_container_width=True,
+    hide_index=True
+)
+
+st.caption(
+    "評分僅依歷史熱度與遺漏值計算，不代表中獎機率提高。"
+)
 t1,t2,t3,t4=st.tabs(['冷熱與遺漏','開獎走勢','參考組合','歷史回測'])
 with t1:
     for p in ['百位','十位','個位']:
