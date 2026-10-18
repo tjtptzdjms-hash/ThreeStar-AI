@@ -395,7 +395,7 @@ if compare_rounds > 0:
 else:
     st.info(
         "歷史資料不足，暫時無法進行權重比較。"
-    ）
+    )
 st.subheader("🔬 V1.3 獨立驗證")
 
 # V1.2 是用最新 200 期挑出：
