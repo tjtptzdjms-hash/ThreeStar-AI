@@ -147,7 +147,157 @@ st.dataframe(
     hide_index=True
 )
 st.subheader("⭐ 組合評分")
+st.subheader("🧪 歷史回測")
 
+def build_score_map(hist_df, hist_window):
+    hist_stat = metrics(hist_df, hist_window)
+
+    result = {}
+
+    for pos in ["百位", "十位", "個位"]:
+        v = hist_stat[hist_stat["位置"] == pos].copy()
+
+        max_count = max(v["出現次數"].max(), 1)
+        max_miss = max(v["遺漏期數"].max(), 1)
+
+        result[pos] = {}
+
+        for _, r in v.iterrows():
+            hot_score = r["出現次數"] / max_count
+            miss_score = r["遺漏期數"] / max_miss
+
+            score = (
+                hot_score * 0.6
+                + miss_score * 0.4
+            )
+
+            result[pos][int(r["數字"])] = score
+
+    return result
+
+
+def top_n_numbers(hist_df, hist_window, top_n=10):
+    score_map_bt = build_score_map(
+        hist_df,
+        hist_window
+    )
+
+    rows = []
+
+    for h in range(10):
+        for t in range(10):
+            for o in range(10):
+                score = (
+                    score_map_bt["百位"][h]
+                    + score_map_bt["十位"][t]
+                    + score_map_bt["個位"][o]
+                ) / 3
+
+                rows.append(
+                    (
+                        f"{h}{t}{o}",
+                        score
+                    )
+                )
+
+    rows.sort(
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    return [
+        number
+        for number, _ in rows[:top_n]
+    ]
+
+
+backtest_rounds = min(
+    200,
+    max(0, len(df) - window - 1)
+)
+
+hits = 0
+tested = 0
+
+if backtest_rounds > 0:
+
+    for i in range(backtest_rounds):
+
+        target_idx = i
+
+        hist_start = i + 1
+        hist_end = i + 1 + window
+
+        hist_df = df.iloc[
+            hist_start:hist_end
+        ].copy()
+
+        if len(hist_df) < window:
+            continue
+
+        actual = str(
+            df.iloc[target_idx]["number"]
+        ).zfill(3)
+
+        picks = top_n_numbers(
+            hist_df,
+            window,
+            10
+        )
+
+        tested += 1
+
+        if actual in picks:
+            hits += 1
+
+    hit_rate = (
+        hits / tested * 100
+        if tested > 0
+        else 0
+    )
+
+    random_rate = 1.0
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "回測期數",
+        tested
+    )
+
+    c2.metric(
+        "Top 10 命中次數",
+        hits
+    )
+
+    c3.metric(
+        "Top 10 命中率",
+        f"{hit_rate:.2f}%"
+    )
+
+    st.write(
+        f"隨機選 10 組的理論命中率：約 {random_rate:.2f}%"
+    )
+
+    if hit_rate > random_rate:
+        st.success(
+            f"目前回測高於隨機基準 "
+            f"{hit_rate - random_rate:.2f} 個百分點"
+        )
+    elif hit_rate < random_rate:
+        st.warning(
+            f"目前回測低於隨機基準 "
+            f"{random_rate - hit_rate:.2f} 個百分點"
+        )
+    else:
+        st.info(
+            "目前回測與隨機基準相同"
+        )
+
+else:
+    st.info(
+        "歷史資料不足，暫時無法回測。"
+    )
 score_map = {}
 
 for pos in ["百位", "十位", "個位"]:
