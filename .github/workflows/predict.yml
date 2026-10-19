@@ -28,6 +28,8 @@ jobs:
           python-version: "3.11"
 
       - name: Generate prediction
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: python predict.py
 
       - name: Save predictions
