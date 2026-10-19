@@ -23,7 +23,7 @@ FIELDS = [
 
 def next_draw_date(now):
     day = now.date()
-    if now.hour >= 20:
+    if now.hour >= 19:
         day += timedelta(days=1)
     while day.weekday() == 6:
         day += timedelta(days=1)
