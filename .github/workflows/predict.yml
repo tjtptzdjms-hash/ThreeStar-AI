@@ -4,7 +4,7 @@ name: ThreeStar Daily Prediction
 on:
   workflow_dispatch:
   schedule:
-    # Taiwan 19:30 = UTC 11:30
+    # Taiwan 18:30 = UTC 10:30
     - cron: "30 11 * * 1-6"
 
 permissions:
