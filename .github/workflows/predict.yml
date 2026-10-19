@@ -1,0 +1,47 @@
+
+name: ThreeStar Daily Prediction
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Taiwan 19:30 = UTC 11:30
+    - cron: "30 11 * * 1-6"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: threestar-prediction
+  cancel-in-progress: false
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate prediction
+        run: python predict.py
+
+      - name: Save predictions
+        run: |
+          git add predictions.csv
+
+          if git diff --cached --quiet; then
+            echo "No new predictions"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git commit -m "Save daily ThreeStar prediction"
+          git pull --rebase origin main
+          git push origin HEAD:main
