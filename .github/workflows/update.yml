@@ -28,19 +28,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+
       - name: Update ThreeStar data
         run: python update.py
 
+      - name: Settle predictions
+        env:
+          DRY_RUN: ${{ github.event_name != 'schedule' && '1' || '0' }}
+        run: python settle.py
+
       - name: Commit updated data
         run: |
-          if git diff --quiet; then
-            echo "No new data"
-            exit 0
-          fi
-
           git config user.name "ThreeStar Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add draws.csv
-          git commit -m "Auto update ThreeStar data"
-          git push
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            git add predictions.csv
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No data changes"
+            exit 0
+          fi
+
+          git commit -m "Auto update and settle ThreeStar"
+          git push origin HEAD:main
