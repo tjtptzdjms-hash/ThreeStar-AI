@@ -860,3 +860,88 @@ if prediction_file.exists():
             )
 else:
     st.info("尚未找到 predictions.csv。")
+
+# ===== V1.5 正式預測績效儀表板 =====
+
+st.divider()
+st.subheader("📊 V1.5 正式預測績效")
+
+from pathlib import Path
+
+performance_file = Path("predictions.csv")
+
+if not performance_file.exists():
+    st.info("尚未建立預測紀錄。")
+else:
+    perf = pd.read_csv(
+        performance_file,
+        dtype=str,
+        encoding="utf-8-sig"
+    ).fillna("")
+
+    # 排除尚未驗證的手動測試日期
+    excluded_dates = {"2026-10-19", "2026-10-22"}
+
+    perf = perf[
+        ~perf["target_date"].isin(excluded_dates)
+    ].copy()
+
+    # 只統計已完成結算的預測
+    settled = perf[
+        perf["status"].isin(["hit", "miss"])
+    ].copy()
+
+    if settled.empty:
+        st.info("尚無已驗證的正式預測績效。")
+    else:
+        daily = (
+            settled.groupby("target_date")
+            .agg(
+                predicted=("number", "count"),
+                hits=("status", lambda x: (x == "hit").sum())
+            )
+            .reset_index()
+            .sort_values("target_date")
+        )
+
+        # 僅納入完整20組的期數
+        daily = daily[daily["predicted"] == 20].copy()
+
+        if daily.empty:
+            st.info("尚無完整20組的已結算期數。")
+        else:
+            total_days = len(daily)
+            total_hits = int(daily["hits"].sum())
+            total_predictions = int(daily["predicted"].sum())
+
+            # 每期Top 20是否包含實際開獎號碼
+            hit_rate = total_hits / total_days * 100
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("已驗證期數", total_days)
+            c2.metric("命中期數", total_hits)
+            c3.metric("每期命中率", f"{hit_rate:.2f}%")
+
+            st.caption(
+                "隨機挑選20組不同三位數的理論每期命中率為2%。"
+            )
+
+            recent = daily.tail(30).copy()
+            recent["命中"] = recent["hits"].apply(
+                lambda x: "✅" if x > 0 else "❌"
+            )
+
+            st.subheader("最近30期結算紀錄")
+            st.dataframe(
+                recent[["target_date", "命中"]].rename(
+                    columns={"target_date": "日期"}
+                ),
+                hide_index=True,
+                use_container_width=True
+            )
+
+            st.subheader("累積命中走勢")
+            daily["累積命中期數"] = daily["hits"].cumsum()
+            st.line_chart(
+                daily.set_index("target_date")["累積命中期數"]
+            )
