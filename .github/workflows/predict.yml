@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   schedule:
     # Taiwan 18:30 = UTC 10:30
-    - cron: "30 11 * * 1-6"
+    - cron: "30 10 * * 1-6"
 
 permissions:
   contents: write
