@@ -83,7 +83,7 @@ def main():
             raise RuntimeError("predictions.csv 欄位格式不符")
         existing = list(reader)
 
-    if any(
+    if os.getenv("DRY_RUN") != "1" and any(
         r["target_date"] == target
         and r["strategy"] == STRATEGY
         and r["window"] == str(WINDOW)
@@ -132,6 +132,16 @@ def main():
             "actual_number": "",
             "settled_at": ""
         })
+
+    if os.getenv("DRY_RUN") == "1":
+        print("=== 測試模式：不寫入正式資料 ===")
+        print(f"目標日期：{target}")
+        print(f"預測建立時間：{created}")
+
+        for row in new_rows:
+            print(f"{row['rank']}. {row['number']}")
+
+        return
 
     with PREDICTIONS.open(
         "a", encoding="utf-8", newline=""
