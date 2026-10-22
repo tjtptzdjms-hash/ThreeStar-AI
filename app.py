@@ -794,3 +794,69 @@ with t4:
         r=pd.DataFrame(results)
         st.dataframe(pd.DataFrame({'方法':['熱門8組','冷門8組','隨機8組'],'命中期數':[int(r['熱門'].sum()),int(r['冷門'].sum()),int(r['隨機8組'].sum())],'回測期數':[len(r)]*3,'理論命中率':[.008]*3}),hide_index=True)
         st.download_button('下載逐期回測',r.to_csv(index=False).encode('utf-8-sig'),'backtest.csv')
+
+# ===== V1.4 每日預測顯示 =====
+
+st.divider()
+st.subheader("🎯 V1.4 今日預測 Top 20")
+
+from pathlib import Path
+
+prediction_file = Path("predictions.csv")
+
+if prediction_file.exists():
+    predictions = pd.read_csv(
+        prediction_file,
+        dtype=str,
+        encoding="utf-8-sig"
+    )
+
+    if predictions.empty:
+        st.info("目前還沒有預測紀錄。")
+    else:
+        today = pd.Timestamp.now(
+            tz="Asia/Taipei"
+        ).strftime("%Y-%m-%d")
+
+        daily = predictions[
+            predictions["target_date"] == today
+        ].copy()
+
+        if daily.empty:
+            st.info("今日尚未產生預測號碼。")
+        else:
+            daily["number"] = daily[
+                "number"
+            ].str.zfill(3)
+
+            daily["rank"] = pd.to_numeric(
+                daily["rank"],
+                errors="coerce"
+            )
+
+            daily = daily.sort_values("rank")
+
+            st.caption(
+                "策略：熱度40%＋遺漏60%，30期視窗"
+            )
+
+            st.write(
+                "預測建立時間：",
+                daily.iloc[0]["created_at"]
+            )
+
+            st.dataframe(
+                daily[
+                    ["rank", "number", "status"]
+                ].rename(
+                    columns={
+                        "rank": "排名",
+                        "number": "號碼",
+                        "status": "狀態"
+                    }
+                ),
+                hide_index=True,
+                use_container_width=True
+            )
+else:
+    st.info("尚未找到 predictions.csv。")
