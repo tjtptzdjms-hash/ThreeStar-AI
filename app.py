@@ -32,7 +32,7 @@ def metrics(df, n):
             out.append({'位置':name,'數字':digit,'出現次數':freq,'出現率':freq/len(seq) if seq else 0,'遺漏期數':miss,'樣本數':len(seq)})
     return pd.DataFrame(out)
 
-st.title('🎯 三星彩統計實驗室 V2.0')
+st.title('🎯 三星彩統計實驗室 V2.1')
 st.caption('歷史統計與回測研究用途；不代表能預測獨立隨機開獎。資料未更新時請以官方公告為準。')
 with st.sidebar:
     st.header('資料管理')
@@ -803,7 +803,7 @@ with t4:
 # ===== V1.4 每日預測顯示 =====
 
 st.divider()
-st.subheader("🎯 V1.4 今日預測 Top 20")
+st.subheader("🎯 V1.4 舊版對照 Top 20")
 
 from pathlib import Path
 
@@ -824,7 +824,7 @@ if prediction_file.exists():
         ).strftime("%Y-%m-%d")
 
         daily = predictions[
-            predictions["target_date"] == today
+            (predictions["target_date"] == today) & (predictions["strategy"] == "hot40_miss60_top20")
         ].copy()
 
         if daily.empty:
@@ -888,7 +888,7 @@ else:
     excluded_dates = {"2026-10-19", "2026-10-22"}
 
     perf = perf[
-        ~perf["target_date"].isin(excluded_dates)
+        (~perf["target_date"].isin(excluded_dates)) & (perf["strategy"] == "hot40_miss60_top20")
     ].copy()
 
     # 只統計已完成結算的預測
@@ -950,4 +950,5 @@ else:
             st.line_chart(
                 daily.set_index("target_date")["累積命中期數"]
             )
+
 
