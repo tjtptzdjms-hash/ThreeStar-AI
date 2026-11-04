@@ -32,7 +32,7 @@ def metrics(df, n):
             out.append({'位置':name,'數字':digit,'出現次數':freq,'出現率':freq/len(seq) if seq else 0,'遺漏期數':miss,'樣本數':len(seq)})
     return pd.DataFrame(out)
 
-st.title('🎯 三星彩統計實驗室 V1.1')
+st.title('🎯 三星彩統計實驗室 V2.0')
 st.caption('歷史統計與回測研究用途；不代表能預測獨立隨機開獎。資料未更新時請以官方公告為準。')
 with st.sidebar:
     st.header('資料管理')
@@ -52,6 +52,11 @@ df=load()
 if df.empty:
     st.warning('目前沒有已驗證的歷史資料。請先匯入 CSV；系統不會把示範號碼當成真實獎號。')
     st.download_button('下載 CSV 範本','date,issue,number\n2026-01-01,example-001,007\n','template.csv','text/csv')
+    st.stop()
+
+from v2_ui import render
+render(df)
+if not st.checkbox('顯示舊版探索工具（非獨立驗證）', value=False):
     st.stop()
 
 st.metric('已收錄期數',len(df))
@@ -396,7 +401,7 @@ else:
     st.info(
         "歷史資料不足，暫時無法進行權重比較。"
     )
-st.subheader("🔬 V1.3 獨立驗證")
+st.subheader("🔬 V1.3 較早資料探索回測")
 
 # V1.2 是用最新 200 期挑出：
 # 熱度 40% / 遺漏 60% / Top 20
@@ -533,7 +538,7 @@ else:
 
 st.caption(
     "V1.3 已排除 V1.2 用來挑選策略的最新 200 期，"
-    "使用其他歷史資料做獨立驗證，以降低過度配適風險。"
+    "使用較早歷史資料回測；此流程非按時間向後的保留驗證，僅供探索。"
 )
 def build_score_map(hist_df, hist_window):
     hist_stat = metrics(hist_df, hist_window)
@@ -945,3 +950,4 @@ else:
             st.line_chart(
                 daily.set_index("target_date")["累積命中期數"]
             )
+
