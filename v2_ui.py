@@ -17,7 +17,10 @@ def render(df):
     records = df.assign(date=df.date.dt.strftime('%Y-%m-%d')).to_dict('records')
     st.metric('已收錄期數', len(df))
     st.caption(f"最新資料：{records[0]['date']}／{records[0]['issue']}／{records[0]['number']}")
-    patterns, testing, logs = st.tabs(['歷史牌路', '逐期回測與保留驗證', '原始預測紀錄'])
+    daily, patterns, testing, logs = st.tabs(['今日 Top 20', '歷史牌路', '逐期回測與保留驗證', '原始預測紀錄'])
+    with daily:
+        from daily_ui import render_daily
+        render_daily()
     with patterns:
         window = st.selectbox('牌路分析期數', [30, 50, 100, 200, 500], index=2)
         detail, summary = history_patterns(records, window)
@@ -52,7 +55,8 @@ def render(df):
         path = Path('predictions.csv')
         if path.exists():
             raw = pd.read_csv(path, dtype=str).fillna('')
-            st.caption('完整原始紀錄，保留手動測試與未結算項目；不將它們混入 V2 回測。每日預測及自動結算仍沿用原策略。')
+            st.caption('完整原始紀錄，保留手動測試與未結算項目；不將它們混入 V2 回測。每日新舊策略以獨立識別碼保存及結算。')
             st.dataframe(raw, hide_index=True, use_container_width=True)
         else:
             st.info('尚無 predictions.csv。')
+
